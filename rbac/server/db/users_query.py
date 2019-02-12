@@ -162,7 +162,6 @@ def fetch_user_ids_by_manager(manager_id, head_block_num):
         .coerce_to("array")
     )
 
-
 async def fetch_peers(conn, user_id):
     """Fetch a user's peers."""
     user_object = await (
@@ -248,3 +247,26 @@ async def fetch_user_relationships(conn, user_id, head_block_num):
         return resource[0]
     except IndexError:
         raise ApiNotFound("Not Found: No user with the id {} exists".format(user_id))
+
+
+async def search_users_db(conn, search_input, search_input_fields):
+    """Fetch all users that have the search_input in search_input_fields fields."""
+
+    search_input = "^" + search_input
+    LOGGER.info("Starting search in db")
+    resource = (
+        await r.table("users")
+        .get_all(id, index="id")
+        .filter(lambda doc: doc('name').match(search_input))
+        .coerce_to("array")
+        .run(conn)
+    )
+    try:
+        LOGGER.info(resource[0])
+        return resource[0]
+    except IndexError:
+        raise ApiNotFound("Not Found: No user with query parameter {} exists".format(search_input))
+
+
+
+

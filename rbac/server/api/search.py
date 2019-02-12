@@ -19,6 +19,7 @@ from rbac.common.logs import get_logger
 from rbac.server.api.auth import authorized
 from rbac.server.db import db_utils
 from rbac.server.db.roles_query import roles_search_name
+from rbac.server.db import users_query
 
 LOGGER = get_logger(__name__)
 SEARCH_BP = Blueprint("search")
@@ -42,29 +43,49 @@ async def search_all(request):
         return json(errors)
 
     # Create resopnse data object
-    data = {"packs": [], "roles": [], "users": []}
+    respdata = {"packs": [], "roles": [], "users": []}
 
-    # Run search queries
+    if "pack" in search_query["search_object_types"]:
+        # Fetch packs with search input string
+        pack_results = []  # Future pack query issue #1176
+        respdata["packs"] = pack_results
+
+    if "role" in search_query["search_object_types"]:
+        # Fetch roles with search input string
+        role_results = []
+        respdata["roles"] = role_results
+
+    if "user" in search_query["search_object_types"]:
+        # Fetch users with search input string
+        user_results = await search_users(request, search_query)  # Future user query issue #1175
+        respdata["users"] = user_results
+
+    #data = sort_and_paginate(search_query, data)
+
+    return json({"data": respdata})
+
+
+def sort_and_paginate(search_query, data):
+    """Sort response and paginate the result"""
+    return data
+
+
+async def search_users(request, search_query):
+    """Function to search for roles"""
+
     conn = await db_utils.create_connection(
         request.app.config.DB_HOST,
         request.app.config.DB_PORT,
         request.app.config.DB_NAME,
     )
-    if "pack" in search_query["search_object_types"]:
-        # Fetch packs with search input string
-        pack_results = []  # Future pack query issue #1176
-        data["packs"] = pack_results
 
-    if "role" in search_query["search_object_types"]:
-        # Fetch roles with search input string
-        role_results = await roles_search_name(conn, search_query)
-        data["roles"] = role_results
+    search_input_value = search_query["search_input"]["value"]
+    search_input_fields = search_query["search_input"]["fields"]
 
-    if "user" in search_query["search_object_types"]:
-        # Fetch users with search input string
-        user_results = []  # Future user query issue #1175
-        data["users"] = user_results
+    search_input_value = "Brian Jo"
+    LOGGER.info("before calling db")
+    result = await users_query.search_users_db(conn, search_input_value, search_input_fields)
 
     conn.close()
 
-    return json({"data": data})
+    return json(result)
