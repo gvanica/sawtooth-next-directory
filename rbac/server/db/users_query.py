@@ -252,12 +252,11 @@ async def fetch_user_relationships(conn, user_id, head_block_num):
 async def search_users_db(conn, search_input, search_input_fields):
     """Fetch all users that have the search_input in search_input_fields fields."""
 
-    search_input = "^" + search_input
+    search_input = "/" + search_input + "/ig"
     LOGGER.info("Starting search in db")
     resource = (
         await r.table("users")
-        .get_all(id, index="id")
-        .filter(lambda doc: doc('name').match(search_input))
+        .filter(lambda doc: doc['name'].match(search_input))
         .coerce_to("array")
         .run(conn)
     )

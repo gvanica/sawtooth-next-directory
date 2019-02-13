@@ -71,7 +71,8 @@ def sort_and_paginate(search_query, data):
 
 
 async def search_users(request, search_query):
-    """Function to search for roles"""
+    """Function to search for users"""
+    # search for name, email, title, manager email, manager title
 
     conn = await db_utils.create_connection(
         request.app.config.DB_HOST,
