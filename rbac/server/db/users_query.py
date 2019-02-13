@@ -249,23 +249,45 @@ async def fetch_user_relationships(conn, user_id, head_block_num):
         raise ApiNotFound("Not Found: No user with the id {} exists".format(user_id))
 
 
-async def search_users_db(conn, search_input, search_input_fields):
-    """Fetch all users that have the search_input in search_input_fields fields."""
-
-    search_input = "/" + search_input + "/ig"
-    LOGGER.info("Starting search in db")
+async def search_users(conn, search_query):
+    """Compiling all search fields for users into one query."""
     resource = (
-        await r.table("users")
-        .filter(lambda doc: doc['name'].match(search_input))
+        await users_search_name(search_query)
+        .union(users_search_email(search_query), interleave="email")
+        .distinct()
+        .pluck("name", "username", "email", "id", "user_id")
+        .map(lambda doc: doc.merge({"id": doc["role_id"]}).without("role_id"))
         .coerce_to("array")
         .run(conn)
     )
-    try:
-        LOGGER.info(resource[0])
-        return resource[0]
-    except IndexError:
-        raise ApiNotFound("Not Found: No user with query parameter {} exists".format(search_input))
+
+    return resource
 
 
+def users_search_name(search_query):
+    """Search for roles based a string int the name field."""
+    resource = (
+        r.table("users")
+        .filter(lambda doc: (doc["name"].match("(?i)" + search_query["search_input"])))
+        .order_by("name")
+        .coerce_to("array")
+    )
 
+    return resource
+
+
+def  users_search_email(search_query):
+    """Search for roles based a string in the description field."""
+    resource = (
+        r.table("users")
+        .filter(
+            lambda doc: (
+                doc["email"].match("(?i)" + search_query["search_input"])
+            )
+        )
+        .order_by("name")
+        .coerce_to("array")
+    )
+
+    return resource
 

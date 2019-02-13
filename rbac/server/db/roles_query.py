@@ -119,16 +119,44 @@ def fetch_expired_roles(user_id):
     )
 
 
-async def roles_search_name(conn, search_query):
-    """Search for roles based a string from front end."""
+async def search_roles(conn, search_query):
+    """Compiling all search fields for roles into one query."""
     resource = (
-        await r.table("roles")
-        .filter(lambda doc: (doc["name"].match("(?i)" + search_query["search_input"])))
-        .order_by("name")
+        await roles_search_name(search_query)
+        .union(roles_search_description(search_query), interleave="name")
         .distinct()
         .pluck("name", "description", "role_id")
+        .map(lambda doc: doc.merge({"id": doc["role_id"]}).without("role_id"))
         .coerce_to("array")
         .run(conn)
+    )
+
+    return resource
+
+
+def roles_search_name(search_query):
+    """Search for roles based a string int the name field."""
+    resource = (
+        r.table("roles")
+        .filter(lambda doc: (doc["name"].match("(?i)" + search_query["search_input"])))
+        .order_by("name")
+        .coerce_to("array")
+    )
+
+    return resource
+
+
+def roles_search_description(search_query):
+    """Search for roles based a string in the description field."""
+    resource = (
+        r.table("roles")
+        .filter(
+            lambda doc: (
+                doc["description"].match("(?i)" + search_query["search_input"])
+            )
+        )
+        .order_by("name")
+        .coerce_to("array")
     )
 
     return resource
